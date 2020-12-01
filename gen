@@ -1,0 +1,61 @@
+#!/bin/bash
+cd /data/pbf/
+
+function process {
+    echo "Processing $1"
+    f=$(basename $1 .poly)
+    #osmconvert planet.pbf -B="/data/pbf/poly/$f.poly" --drop-author --complete-ways --complete-multipolygons -o="/data/pbf/pays/$f.pbf" omitMetadata=true
+    osmconvert planet.pbf -B="/data/pbf/poly/$f.poly" --complete-ways --complete-multipolygons --complete-boundaries --drop-broken-refs --drop-version -o="/data/pbf/pays/$f.pbf"
+    rm osmconvert_tempfile* cascadingRelations=true
+    /data/pbf/osmosis/bin/osmosis -v --rbf file=/data/pbf/pays/$f.pbf --mw file=/data/pbf/maps/$f.map type=hd
+    #
+    #/data/pbf/osmosis/bin/osmosis -v --rbf file=/data/pbf/planet.pbf --bp cascadingRelations=true file=/data/pbf/poly/$f.poly --mw file=$f.map type=hd
+}
+ 
+#planete et poly
+if [ "$#" -eq 1 ]; then
+    echo -n "update planet & poly ? y/n"
+    read answer
+    echo -n "process all poly ? y/n"
+    read answer1 
+
+    if [ "$answer" != "${answer#[Yy]}" ] ;then
+        #dl poly
+        cd /data/pbf/poly
+        rm *
+        wget -q -r -A poly -nd --no-parent http://download.openstreetmap.fr/polygons/
+        #alps
+        wget https://download.geofabrik.de/europe/alps.poly
+        cd /data/pbf
+        rm planet.pbf
+        wget https://planet.openstreetmap.org/pbf/planet-latest.osm.pbf -q --show-progress -O planet.pbf
+    fi
+fi
+
+if [ "$#" -eq 1 ]; then
+FILES_POLY=$(ls /data/pbf/poly/* | grep $1)
+    for f in $FILES_POLY
+    do
+        f=$(basename $f .poly)
+        echo -ne $f; echo -ne "    "
+    done
+    echo ""
+    echo -n "process ? y/n"
+    read answer
+    if [ "$answer" != "${answer#[Yy]}" ] ;then
+        for f in $FILES_POLY
+        do
+	    process $f
+        done 
+    fi
+    exit
+fi
+
+if [ "$answer1" != "${answer1#[Yy]}" ] ;then
+    FILES_POLY=/data/pbf/poly/*
+    for f in $FILES_POLY
+    do
+        process $f
+    done
+fi
+#convert pbf to #
